@@ -1,0 +1,54 @@
+---
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      git-ref:
+        description: git ref
+        required: true
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os.value }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { name: linux, value: ubuntu-latest }
+          - { name: darwin, value: macos-latest }
+        arch:
+          - amd64
+          - arm64
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21.x
+      - name: Build for ${{ matrix.os.name }}-${{ matrix.arch }}
+        id: build
+        env:
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          export REL_VER=`git describe --tags --always`
+          echo "REL_VER=$REL_VER" >> $GITHUB_OUTPUT
+
+          make build
+          echo "Build success."
+
+          mv bin/balancer bin/balancer-${REL_VER}-${{ matrix.os.name }}-${{ matrix.arch }}
+      - name: Upload
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifacts: bin/balancer-${{ steps.build.outputs.REL_VER }}-${{ matrix.os.name }}-${{ matrix.arch }}
+          artifactContentType: application/gzip
+          omitBodyDuringUpdate: true
+          omitNameDuringUpdate: true
+          prerelease: ${{ github.event.release.prerelease }}
+          token: ${{ secrets.GITHUB_TOKEN }}
