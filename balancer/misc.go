@@ -5,12 +5,12 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 
+	"github.com/pingcap/log"
 	"github.com/pkg/errors"
 	pdhttp "github.com/tikv/pd/client/http"
 	"go.uber.org/zap"

@@ -40,7 +40,7 @@ func init() {
 	}
 
 	cmd.PersistentFlags().BoolP("help", "h", false, "help for this command")
-	cmd.PersistentFlags().StringVarP(&pdHost, "pd", "H", "127.0.0.1", "PD Host")
+	cmd.PersistentFlags().StringVarP(&pdHost, "pd-host", "H", "127.0.0.1", "PD Host")
 	cmd.PersistentFlags().IntVarP(&pdPort, "pd-port", "P", 2379, "PD Port")
 	cmd.PersistentFlags().Int64VarP(&tableID, "table", "t", 0, "Table ID")
 	cmd.PersistentFlags().StringVarP(&SSLCA, "ssl-ca", "", "", "SSL CA")

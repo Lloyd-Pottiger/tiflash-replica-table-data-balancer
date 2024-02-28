@@ -3,11 +3,15 @@ package balancer
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"github.com/pingcap/errors"
+	"github.com/tikv/client-go/v2/tikv"
 )
+
+var Codec = tikv.NewCodecV1(tikv.ModeTxn)
 
 func AddTransferPeerOperator(pdEndpoint string, regionID, fromStoreID, toStoreID int64) error {
 	input := make(map[string]any)
@@ -33,7 +37,12 @@ func GetAllTiFlashStores(pdEndpoint string) ([]int64, error) {
 	}
 	var storeIDs []int64
 	for _, store := range stores.Stores {
-		storeIDs = append(storeIDs, store.Store.ID)
+		for _, label := range store.Store.Labels {
+			if label.Key == "engine" && label.Value == "tiflash" {
+				storeIDs = append(storeIDs, store.Store.ID)
+				break
+			}
+		}
 	}
 	return storeIDs, nil
 }
@@ -48,14 +57,22 @@ func GetStoreRegionIDsInGivenRange(pdEndpoint string, storeID int64, startKey, e
 	}
 	var regionIDs []int64
 	for _, region := range regions.Regions {
-		if bytes.Compare([]byte(region.StartKey), startKey) >= 0 && (len(endKey) == 0 || bytes.Compare([]byte(region.EndKey), endKey) < 0) {
+		regionStartKey, err := hex.DecodeString(region.StartKey)
+		if err != nil {
+			return nil, errors.Annotate(err, "decode region start key failed")
+		}
+		regionEndKey, err := hex.DecodeString(region.EndKey)
+		if err != nil {
+			return nil, errors.Annotate(err, "decode region end key failed")
+		}
+		if bytes.Compare(regionStartKey, startKey) >= 0 && bytes.Compare(regionEndKey, endKey) <= 0 {
 			regionIDs = append(regionIDs, region.ID)
 		}
 	}
 	return regionIDs, nil
 }
 
-func GetTableKeyRange(pdEndpoint string, tableID int64) (startKey, endKey []byte, err error) {
+func GetTableKeyRange(pdEndpoint string, tableID int64) ([]byte, []byte, error) {
 	if pdClient == nil {
 		InitPDClient()
 	}
@@ -63,9 +80,6 @@ func GetTableKeyRange(pdEndpoint string, tableID int64) (startKey, endKey []byte
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "get placement rule failed")
 	}
-	if rule.Count != 1 {
-		// FIXME: support multiple replicas
-		return nil, nil, errors.Errorf("Invalid placement rule count %v, now support 1 replica now", rule.Count)
-	}
-	return rule.StartKey, rule.EndKey, nil
+	startKey, endKey := Codec.EncodeRegionRange(rule.StartKey, rule.EndKey)
+	return startKey, endKey, nil
 }
