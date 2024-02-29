@@ -16,6 +16,8 @@ func NewHttpCmd() *cobra.Command {
 		SSLCert string
 		SSLKey  string
 		tableID int64
+		zone    string
+		region  string
 	)
 
 	cmd := &cobra.Command{
@@ -31,19 +33,21 @@ func NewHttpCmd() *cobra.Command {
 				},
 			}
 			client := conf.GetClient()
-			if err := balancer.Schedule(client, tableID); err != nil {
+			if err := balancer.Schedule(client, tableID, zone, region); err != nil {
 				cmd.PrintErrln(err)
 			}
 		},
 	}
 
 	cmd.PersistentFlags().BoolP("help", "h", false, "help for this command")
-	cmd.PersistentFlags().StringVarP(&pdHost, "pd-host", "H", "127.0.0.1", "PD Host")
-	cmd.PersistentFlags().IntVarP(&pdPort, "pd-port", "P", 2379, "PD Port")
-	cmd.PersistentFlags().StringVarP(&SSLCA, "ssl-ca", "", "", "SSL CA")
-	cmd.PersistentFlags().StringVarP(&SSLCert, "ssl-cert", "", "", "SSL Cert")
-	cmd.PersistentFlags().StringVarP(&SSLKey, "ssl-key", "", "", "SSL Key")
-	cmd.PersistentFlags().Int64VarP(&tableID, "table", "t", 0, "Table ID")
+	cmd.Flags().StringVarP(&pdHost, "pd-host", "H", "127.0.0.1", "PD Host")
+	cmd.Flags().IntVarP(&pdPort, "pd-port", "P", 2379, "PD Port")
+	cmd.Flags().StringVarP(&SSLCA, "ssl-ca", "", "", "SSL CA")
+	cmd.Flags().StringVarP(&SSLCert, "ssl-cert", "", "", "SSL Cert")
+	cmd.Flags().StringVarP(&SSLKey, "ssl-key", "", "", "SSL Key")
+	cmd.Flags().Int64VarP(&tableID, "table", "t", 0, "Table ID")
+	cmd.Flags().StringVarP(&zone, "zone", "z", "", "Zone Name")
+	cmd.Flags().StringVarP(&region, "region", "r", "", "Region Name")
 
 	cmd.MarkFlagRequired("table")
 

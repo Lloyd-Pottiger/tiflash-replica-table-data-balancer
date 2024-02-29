@@ -35,7 +35,7 @@ func (pd *PDHttp) AddTransferPeerOperator(regionID, fromStoreID, toStoreID int64
 	return postJSON(pd.rawHttpClient, pd.schema, pd.Endpoint, "/pd/api/v1/operators", data)
 }
 
-func (pd *PDHttp) GetAllTiFlashStores() ([]int64, error) {
+func (pd *PDHttp) GetAllTiFlashStores(zone, region string) ([]int64, error) {
 	stores, err := pd.Client.GetStores(context.Background())
 	if err != nil {
 		return nil, errors.Annotate(err, "get all TiFlash stores failed")
@@ -43,6 +43,9 @@ func (pd *PDHttp) GetAllTiFlashStores() ([]int64, error) {
 	var storeIDs []int64
 	for _, store := range stores.Stores {
 		for _, label := range store.Store.Labels {
+			if label.Key == "region" && label.Value != region || label.Key == "zone" && label.Value != zone {
+				continue
+			}
 			if label.Key == "engine" && label.Value == "tiflash" {
 				storeIDs = append(storeIDs, store.Store.ID)
 				break

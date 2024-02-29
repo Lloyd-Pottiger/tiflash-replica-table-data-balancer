@@ -17,7 +17,8 @@ import (
 )
 
 type PDCtl struct {
-	Path string
+	Command string
+	Args    []string
 }
 
 func execute(cmd string, args ...string) (string, error) {
@@ -32,12 +33,24 @@ func execute(cmd string, args ...string) (string, error) {
 }
 
 func (pd *PDCtl) AddTransferPeerOperator(regionID, fromStoreID, toStoreID int64) error {
-	_, err := execute(pd.Path, "operator", "add", "transfer-peer", strconv.FormatInt(regionID, 10), strconv.FormatInt(fromStoreID, 10), strconv.FormatInt(toStoreID, 10))
+	args := append(pd.Args, "operator", "add", "transfer-peer", strconv.FormatInt(regionID, 10), strconv.FormatInt(fromStoreID, 10), strconv.FormatInt(toStoreID, 10))
+	_, err := execute(pd.Command, args...)
 	return err
 }
 
-func (pd *PDCtl) GetAllTiFlashStores() ([]int64, error) {
-	output, err := execute(pd.Path, "store", "--jq", `[.stores[] | select(.store.labels[]? | select(.key == "engine" and .value == "tiflash"))]`)
+func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, error) {
+	jqQuery := `select(.store.labels[]? | select(.key == "engine" and .value == "tiflash"))`
+	if len(zone) > 0 && len(region) > 0 {
+		jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "region" and .value == "%s"))] | select(.store.labels[]? | (.key == "zone" and .value == "%s"))]`, jqQuery, region, zone)
+	} else if len(zone) > 0 {
+		jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "zone" and .value == "%s"))]`, jqQuery, zone)
+	} else if len(region) > 0 {
+		jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "region" and .value == "%s"))]`, jqQuery, region)
+	} else {
+		jqQuery = fmt.Sprintf(`[.stores[] | %s]`, jqQuery)
+	}
+	args := append(pd.Args, "store", "--jq", jqQuery)
+	output, err := execute(pd.Command, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -54,9 +67,13 @@ func (pd *PDCtl) GetAllTiFlashStores() ([]int64, error) {
 }
 
 func (pd *PDCtl) GetStoreRegionIDsInGivenRange(storeID int64, startKey, endKey []byte) ([]int64, error) {
-	output, err := execute(pd.Path, "region", "store", strconv.FormatInt(storeID, 10))
+	args := append(pd.Args, "region", "store", strconv.FormatInt(storeID, 10))
+	output, err := execute(pd.Command, args...)
 	if err != nil {
 		return nil, err
+	}
+	if len(output) == 0 || output == "[]\n\n" {
+		return nil, nil
 	}
 	var regions pdhttp.RegionsInfo
 	err = json.Unmarshal([]byte(output), &regions)
@@ -82,7 +99,8 @@ func (pd *PDCtl) GetStoreRegionIDsInGivenRange(storeID int64, startKey, endKey [
 
 func (pd *PDCtl) GetTableKeyRange(tableID int64) ([]byte, []byte, error) {
 	outputFile := fmt.Sprintf("rule-tiflash-table-%v-r.json", tableID)
-	_, err := execute(pd.Path, "config", "placement-rules", "load", "--group", "tiflash", "--id", fmt.Sprintf("table-%v-r", tableID), "--out", outputFile)
+	args := append(pd.Args, "config", "placement-rules", "load", "--group", "tiflash", "--id", fmt.Sprintf("table-%v-r", tableID), "--out", outputFile)
+	_, err := execute(pd.Command, args...)
 	if err != nil {
 		return nil, nil, err
 	}

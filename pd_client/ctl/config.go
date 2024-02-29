@@ -5,11 +5,13 @@ import (
 )
 
 type CtlConfig struct {
-	Path string
+	Command string
+	Args    []string
 }
 
 func (c *CtlConfig) GetClient() client.PDClient {
 	return &PDCtl{
-		Path: c.Path,
+		Command: c.Command,
+		Args:    c.Args,
 	}
 }

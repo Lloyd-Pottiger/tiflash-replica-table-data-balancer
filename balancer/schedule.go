@@ -26,8 +26,8 @@ func InitTiFlashStore(id int64, regionIDs []int64) TiFlashStore {
 	return TiFlashStore{ID: id, RegionIDs: regionIDs, RegionIDSet: regionIDSet}
 }
 
-func Schedule(pd client.PDClient, tableID int64) error {
-	tiflashStoreIDs, err := pd.GetAllTiFlashStores()
+func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
+	tiflashStoreIDs, err := pd.GetAllTiFlashStores(zone, region)
 	if err != nil {
 		return err
 	}
