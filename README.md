@@ -5,7 +5,13 @@ A tool helps to balance the table data of TiFlash replicas between multiple TiFl
 ## Usage
 
 ```bash
-./balancer --table <table_id> [--pd-host <host>] [--pd-port <port>] [--ssl-ca <ca>] [--ssl-cert <cert>] [--ssl-key <key>]
+./balancer http --table <table_id> [--pd-host <host>] [--pd-port <port>] [--ssl-ca <ca>] [--ssl-cert <cert>] [--ssl-key <key>]
+```
+
+or
+
+```bash
+./balancer ctl --table <table_id> --ctl-path <path_of_pd_ctl>
 ```
 
 ## How to get table_id

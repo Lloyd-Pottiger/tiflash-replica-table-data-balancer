@@ -8,6 +8,8 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
 	"go.uber.org/zap"
+
+	client "github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/pd_client"
 )
 
 type TiFlashStore struct {
@@ -24,8 +26,8 @@ func InitTiFlashStore(id int64, regionIDs []int64) TiFlashStore {
 	return TiFlashStore{ID: id, RegionIDs: regionIDs, RegionIDSet: regionIDSet}
 }
 
-func Schedule() error {
-	tiflashStoreIDs, err := GetAllTiFlashStores(GlobalConfig.PDEndpoint)
+func Schedule(pd client.PDClient, tableID int64) error {
+	tiflashStoreIDs, err := pd.GetAllTiFlashStores()
 	if err != nil {
 		return err
 	}
@@ -33,15 +35,15 @@ func Schedule() error {
 		return errors.New("TiFlash stores less than 2")
 	}
 	log.Info("TiFlash stores", zap.Any("store-ids", tiflashStoreIDs))
-	startKey, endKey, err := GetTableKeyRange(GlobalConfig.PDEndpoint, GlobalConfig.TableID)
+	startKey, endKey, err := pd.GetTableKeyRange(tableID)
 	if err != nil {
 		return err
 	}
-	log.Info("Key range for table", zap.Int64("table-id", GlobalConfig.TableID), zap.String("start-key", hex.EncodeToString(startKey)), zap.String("end-key", hex.EncodeToString(endKey)))
+	log.Info("Key range for table", zap.Int64("table-id", tableID), zap.String("start-key", hex.EncodeToString(startKey)), zap.String("end-key", hex.EncodeToString(endKey)))
 	var tiflashStores []TiFlashStore
 	totalRegionCount := 0
 	for _, storeID := range tiflashStoreIDs {
-		regionIDs, err := GetStoreRegionIDsInGivenRange(GlobalConfig.PDEndpoint, storeID, startKey, endKey)
+		regionIDs, err := pd.GetStoreRegionIDsInGivenRange(storeID, startKey, endKey)
 		if err != nil {
 			return err
 		}
@@ -59,20 +61,18 @@ func Schedule() error {
 		for j := len(tiflashStores) - 1; j > i; j-- {
 			fromStore := &tiflashStores[i]
 			toStore := &tiflashStores[j]
-			if len(fromStore.RegionIDs) > totalRegionCount/len(tiflashStores) && len(toStore.RegionIDs) < totalRegionCount/len(tiflashStores) {
+			for len(fromStore.RegionIDs) > totalRegionCount/len(tiflashStores) && len(toStore.RegionIDs) < totalRegionCount/len(tiflashStores) {
 				regionID := fromStore.RegionIDs[len(fromStore.RegionIDs)-1]
 				// check if the region is already in the target store
 				if _, exist := toStore.RegionIDSet[regionID]; exist {
 					continue
 				}
-				if err := AddTransferPeerOperator(GlobalConfig.PDEndpoint, regionID, fromStore.ID, toStore.ID); err != nil {
+				if err := pd.AddTransferPeerOperator(regionID, fromStore.ID, toStore.ID); err != nil {
 					return err
 				}
 				log.Info("transfer peer", zap.Int64("region-id", regionID), zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID))
 				fromStore.RegionIDs = fromStore.RegionIDs[:len(fromStore.RegionIDs)-1]
 				toStore.RegionIDs = append(toStore.RegionIDs, regionID)
-			} else {
-				break
 			}
 		}
 	}

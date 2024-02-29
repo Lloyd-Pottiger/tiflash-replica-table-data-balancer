@@ -1,4 +1,4 @@
-package balancer
+package http
 
 import (
 	"bytes"
@@ -6,14 +6,22 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
+	client "github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/pd_client"
 	"github.com/pingcap/errors"
-	"github.com/tikv/client-go/v2/tikv"
+	pdhttp "github.com/tikv/pd/client/http"
 )
 
-var Codec = tikv.NewCodecV1(tikv.ModeTxn)
+type PDHttp struct {
+	Endpoint      string
+	Client        pdhttp.Client
+	rawHttpClient *http.Client
+	schema        string
+}
 
-func AddTransferPeerOperator(pdEndpoint string, regionID, fromStoreID, toStoreID int64) error {
+func (pd *PDHttp) AddTransferPeerOperator(regionID, fromStoreID, toStoreID int64) error {
+	// TODO: Use PD HTTP SDK when it is available
 	input := make(map[string]any)
 	input["name"] = "transfer-peer"
 	input["region_id"] = regionID
@@ -24,14 +32,11 @@ func AddTransferPeerOperator(pdEndpoint string, regionID, fromStoreID, toStoreID
 	if err != nil {
 		return errors.Annotate(err, "marshal transfer peer operator failed")
 	}
-	return PostJSON(pdEndpoint, "/pd/api/v1/operators", data)
+	return postJSON(pd.rawHttpClient, pd.schema, pd.Endpoint, "/pd/api/v1/operators", data)
 }
 
-func GetAllTiFlashStores(pdEndpoint string) ([]int64, error) {
-	if pdClient == nil {
-		InitPDClient()
-	}
-	stores, err := pdClient.GetStores(context.Background())
+func (pd *PDHttp) GetAllTiFlashStores() ([]int64, error) {
+	stores, err := pd.Client.GetStores(context.Background())
 	if err != nil {
 		return nil, errors.Annotate(err, "get all TiFlash stores failed")
 	}
@@ -47,11 +52,8 @@ func GetAllTiFlashStores(pdEndpoint string) ([]int64, error) {
 	return storeIDs, nil
 }
 
-func GetStoreRegionIDsInGivenRange(pdEndpoint string, storeID int64, startKey, endKey []byte) ([]int64, error) {
-	if pdClient == nil {
-		InitPDClient()
-	}
-	regions, err := pdClient.GetRegionsByStoreID(context.Background(), uint64(storeID))
+func (pd *PDHttp) GetStoreRegionIDsInGivenRange(storeID int64, startKey, endKey []byte) ([]int64, error) {
+	regions, err := pd.Client.GetRegionsByStoreID(context.Background(), uint64(storeID))
 	if err != nil {
 		return nil, errors.Annotate(err, "get store regions failed")
 	}
@@ -72,14 +74,11 @@ func GetStoreRegionIDsInGivenRange(pdEndpoint string, storeID int64, startKey, e
 	return regionIDs, nil
 }
 
-func GetTableKeyRange(pdEndpoint string, tableID int64) ([]byte, []byte, error) {
-	if pdClient == nil {
-		InitPDClient()
-	}
-	rule, err := pdClient.GetPlacementRule(context.Background(), "tiflash", fmt.Sprintf("table-%v-r", tableID))
+func (pd *PDHttp) GetTableKeyRange(tableID int64) ([]byte, []byte, error) {
+	rule, err := pd.Client.GetPlacementRule(context.Background(), "tiflash", fmt.Sprintf("table-%v-r", tableID))
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "get placement rule failed")
 	}
-	startKey, endKey := Codec.EncodeRegionRange(rule.StartKey, rule.EndKey)
+	startKey, endKey := client.Codec.EncodeRegionRange(rule.StartKey, rule.EndKey)
 	return startKey, endKey, nil
 }

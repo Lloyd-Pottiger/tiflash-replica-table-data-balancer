@@ -1,11 +1,16 @@
-package balancer
+package http
 
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"log"
+	"net/http"
 	"os"
 
-	"github.com/pkg/errors"
+	client "github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/pd_client"
+	"github.com/pingcap/errors"
+	pdhttp "github.com/tikv/pd/client/http"
+	"go.uber.org/zap"
 )
 
 // Security is the security section of the config.
@@ -60,10 +65,36 @@ func (s *Security) ToTlsConfig() (tlsConfig *tls.Config, err error) {
 	return
 }
 
-type Config struct {
-	PDEndpoint string
-	TableID    int64
-	Security   *Security
+type HttpConfig struct {
+	Endpoint string
+	Security *Security
 }
 
-var GlobalConfig *Config
+func (c *HttpConfig) GetClient() client.PDClient {
+	var opts []pdhttp.ClientOption
+	var schema string
+	var tlsCfg *tls.Config
+	var err error
+	if c.Security != nil && (len(c.Security.SSLCA) != 0 || len(c.Security.SSLCert) != 0 || len(c.Security.SSLKey) != 0) {
+		tlsCfg, err = c.Security.ToTlsConfig()
+		if err != nil {
+			log.Fatal("could not load cluster ssl", zap.Error(err))
+			os.Exit(1)
+		}
+		opts = append(opts, pdhttp.WithTLSConfig(tlsCfg))
+		schema = "https"
+	} else {
+		schema = "http"
+	}
+	return &PDHttp{
+		Endpoint: c.Endpoint,
+		Client: pdhttp.NewClient(
+			"balancer",
+			[]string{composeURL(schema, c.Endpoint, "")},
+			opts...),
+		rawHttpClient: &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tlsCfg},
+		},
+		schema: schema,
+	}
+}
