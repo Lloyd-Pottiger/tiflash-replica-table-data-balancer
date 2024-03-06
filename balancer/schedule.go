@@ -34,7 +34,7 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
 	if len(tiflashStoreIDs) < 2 {
 		return errors.New("TiFlash stores less than 2")
 	}
-	log.Info("TiFlash stores", zap.String("zone", zone), zap.Int("num-store", len(tiflashStoreIDs)), zap.Any("store-ids", tiflashStoreIDs))
+	log.Info("TiFlash stores", zap.String("zone", zone), zap.String("region", region), zap.Int("num-store", len(tiflashStoreIDs)), zap.Any("store-ids", tiflashStoreIDs))
 	startKey, endKey, err := pd.GetTableKeyRange(tableID)
 	if err != nil {
 		return err
