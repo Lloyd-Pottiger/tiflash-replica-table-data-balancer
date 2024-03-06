@@ -34,7 +34,7 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
 	if len(tiflashStoreIDs) < 2 {
 		return errors.New("TiFlash stores less than 2")
 	}
-	log.Info("TiFlash stores", zap.Any("store-ids", tiflashStoreIDs))
+	log.Info("TiFlash stores", zap.String("zone", zone), zap.Int("num-store", len(tiflashStoreIDs)), zap.Any("store-ids", tiflashStoreIDs))
 	startKey, endKey, err := pd.GetTableKeyRange(tableID)
 	if err != nil {
 		return err
@@ -47,20 +47,25 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
 		if err != nil {
 			return err
 		}
-		log.Info("store region", zap.Int64("store-id", storeID), zap.Any("region", regionIDs))
+		log.Info("store region", zap.Int64("store-id", storeID), zap.Int("num-region", len(regionIDs)), zap.Any("region", regionIDs))
 		totalRegionCount += len(regionIDs)
 		tiflashStores = append(tiflashStores, InitTiFlashStore(storeID, regionIDs))
 	}
+	log.Info("total region peer count", zap.Int("total-num-region-peer", totalRegionCount))
 	// sort TiFlash stores by region count in descending order
 	slices.SortStableFunc(tiflashStores, func(lhs, rhs TiFlashStore) int {
 		return -cmp.Compare(len(lhs.RegionIDs), len(rhs.RegionIDs))
 	})
 	// balance TiFlash stores
 	// TODO: limit the number of transfer peer operators
+	log.Info("balance begin")
 	for i := 0; i < len(tiflashStores)-1; i++ {
 		for j := len(tiflashStores) - 1; j > i; j-- {
 			fromStore := &tiflashStores[i]
 			toStore := &tiflashStores[j]
+			numRegionsFromBeg, numRegionsToBeg := len(fromStore.RegionIDs), len(toStore.RegionIDs)
+			numOperatorGen := 0
+			log.Info("checking transfer peer", zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID))
 			for len(fromStore.RegionIDs) > totalRegionCount/len(tiflashStores) && len(toStore.RegionIDs) < totalRegionCount/len(tiflashStores) {
 				regionID := fromStore.RegionIDs[len(fromStore.RegionIDs)-1]
 				// check if the region is already in the target store
@@ -73,8 +78,16 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
 				log.Info("transfer peer", zap.Int64("region-id", regionID), zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID))
 				fromStore.RegionIDs = fromStore.RegionIDs[:len(fromStore.RegionIDs)-1]
 				toStore.RegionIDs = append(toStore.RegionIDs, regionID)
+				numOperatorGen += 1
 			}
+			numRegionsFromEnd, numRegionsToEnd := len(fromStore.RegionIDs), len(toStore.RegionIDs)
+			log.Info("generate transfer peer",
+				zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID),
+				zap.Int("num-from-regions-beg", numRegionsFromBeg), zap.Int("num-from-regions-end", numRegionsFromEnd),
+				zap.Int("num-to-regions-beg", numRegionsToBeg), zap.Int("num-to-regions-end", numRegionsToEnd),
+				zap.Int("total", numOperatorGen))
 		}
 	}
+	log.Info("balance end")
 	return nil
 }
