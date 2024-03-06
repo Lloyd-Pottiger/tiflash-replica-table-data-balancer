@@ -5,10 +5,9 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
-	client "github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/pd_client"
+	tidbcodec "github.com/JaySon-Huang/tiflash-ctl/pkg/tidb"
 	"github.com/pingcap/errors"
 	pdhttp "github.com/tikv/pd/client/http"
 )
@@ -78,10 +77,7 @@ func (pd *PDHttp) GetStoreRegionIDsInGivenRange(storeID int64, startKey, endKey 
 }
 
 func (pd *PDHttp) GetTableKeyRange(tableID int64) ([]byte, []byte, error) {
-	rule, err := pd.Client.GetPlacementRule(context.Background(), "tiflash", fmt.Sprintf("table-%v-r", tableID))
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "get placement rule failed")
-	}
-	startKey, endKey := client.Codec.EncodeRegionRange(rule.StartKey, rule.EndKey)
-	return startKey, endKey, nil
+	startKey := tidbcodec.NewTableStartAsKey(tableID)
+	endKey := tidbcodec.NewTableEndAsKey(tableID)
+	return startKey.GetBytes(), endKey.GetBytes(), nil
 }
