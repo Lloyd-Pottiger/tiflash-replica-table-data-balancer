@@ -14,7 +14,6 @@ import (
 
 type TiFlashStore struct {
 	ID          int64
-	RegionIDs   []int64
 	RegionIDSet map[int64]struct{}
 }
 
@@ -23,7 +22,7 @@ func InitTiFlashStore(id int64, regionIDs []int64) TiFlashStore {
 	for _, regionID := range regionIDs {
 		regionIDSet[regionID] = struct{}{}
 	}
-	return TiFlashStore{ID: id, RegionIDs: regionIDs, RegionIDSet: regionIDSet}
+	return TiFlashStore{ID: id, RegionIDSet: regionIDSet}
 }
 
 func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
@@ -54,7 +53,7 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
 	log.Info("total region peer count", zap.Int("total-num-region-peer", totalRegionCount))
 	// sort TiFlash stores by region count in descending order
 	slices.SortStableFunc(tiflashStores, func(lhs, rhs TiFlashStore) int {
-		return -cmp.Compare(len(lhs.RegionIDs), len(rhs.RegionIDs))
+		return -cmp.Compare(len(lhs.RegionIDSet), len(rhs.RegionIDSet))
 	})
 	// balance TiFlash stores
 	// TODO: limit the number of transfer peer operators
@@ -63,24 +62,28 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
 		for j := len(tiflashStores) - 1; j > i; j-- {
 			fromStore := &tiflashStores[i]
 			toStore := &tiflashStores[j]
-			numRegionsFromBeg, numRegionsToBeg := len(fromStore.RegionIDs), len(toStore.RegionIDs)
+			fromStoreRegionSet := &fromStore.RegionIDSet
+			toStoreRegionSet := &toStore.RegionIDSet
+      numRegionsFromBeg, numRegionsToBeg := len(*fromStoreRegionSet), len(*toStoreRegionSet)
 			numOperatorGen := 0
 			log.Info("checking transfer peer", zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID))
-			for len(fromStore.RegionIDs) > totalRegionCount/len(tiflashStores) && len(toStore.RegionIDs) < totalRegionCount/len(tiflashStores) {
-				regionID := fromStore.RegionIDs[len(fromStore.RegionIDs)-1]
-				// check if the region is already in the target store
-				if _, exist := toStore.RegionIDSet[regionID]; exist {
+			for regionID := range *fromStoreRegionSet {
+				if len(*fromStoreRegionSet) <= totalRegionCount/len(tiflashStores) || len(*toStoreRegionSet) >= totalRegionCount/len(tiflashStores) {
+					break
+				}
+				if _, exist := (*toStoreRegionSet)[regionID]; exist {
+					// If the region is already in the target store, skip it
 					continue
 				}
 				if err := pd.AddTransferPeerOperator(regionID, fromStore.ID, toStore.ID); err != nil {
 					return err
 				}
 				log.Info("transfer peer", zap.Int64("region-id", regionID), zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID))
-				fromStore.RegionIDs = fromStore.RegionIDs[:len(fromStore.RegionIDs)-1]
-				toStore.RegionIDs = append(toStore.RegionIDs, regionID)
+				delete(*fromStoreRegionSet, regionID)
+				(*toStoreRegionSet)[regionID] = struct{}{}
 				numOperatorGen += 1
 			}
-			numRegionsFromEnd, numRegionsToEnd := len(fromStore.RegionIDs), len(toStore.RegionIDs)
+			numRegionsFromEnd, numRegionsToEnd := len(*fromStoreRegionSet), len(*toStoreRegionSet)
 			log.Info("generate transfer peer",
 				zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID),
 				zap.Int("num-from-regions-beg", numRegionsFromBeg), zap.Int("num-from-regions-end", numRegionsFromEnd),
