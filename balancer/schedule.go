@@ -26,7 +26,7 @@ func InitTiFlashStore(id int64, regionIDs []int64) TiFlashStore {
 	return TiFlashStore{ID: id, RegionIDSet: regionIDSet}
 }
 
-func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun bool) error {
+func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun, showOnly bool) error {
 	tiflashStoreIDs, err := pd.GetAllTiFlashStores(zone, region)
 	if err != nil {
 		return err
@@ -34,7 +34,7 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun boo
 	if len(tiflashStoreIDs) < 2 {
 		return errors.New("TiFlash stores less than 2")
 	}
-	log.Info("schedule run", zap.String("zone", zone), zap.String("region", region), zap.Bool("dry-run", dryRun))
+	log.Info("schedule run", zap.String("zone", zone), zap.String("region", region), zap.Bool("dry-run", dryRun), zap.Bool("show-only", showOnly))
 	if dryRun {
 		log.Info("Schedule running in dry-run mode, it will only print the operator commands. If you want to send the operators to PD, add --dry-run=false")
 	}
@@ -57,6 +57,17 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun boo
 	}
 	expectedRegionCountPerStore := totalRegionCount / len(tiflashStores)
 	log.Info("total region peer count", zap.Int("total-num-region-peer", totalRegionCount), zap.Int("expect-num-region-per-store", expectedRegionCountPerStore))
+	for _, store := range tiflashStores {
+		log.Info("store region dist",
+			zap.Int64("store-id", store.ID),
+			zap.Int("num-region", len(store.RegionIDSet)),
+			zap.Float64("percentage", float64(len(store.RegionIDSet))/float64(totalRegionCount)))
+	}
+	if showOnly {
+		// only show the region distribution
+		return nil
+	}
+
 	// sort TiFlash stores by region count in descending order
 	slices.SortStableFunc(tiflashStores, func(lhs, rhs TiFlashStore) int {
 		return -cmp.Compare(len(lhs.RegionIDSet), len(rhs.RegionIDSet))

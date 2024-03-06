@@ -11,16 +11,17 @@ import (
 
 func NewCtlCmd() *cobra.Command {
 	var (
-		ctlPath string
-		pdHost  string
-		pdPort  int
-		SSLCA   string
-		SSLCert string
-		SSLKey  string
-		tableID int64
-		zone    string
-		region  string
-		dryRun  bool
+		ctlPath  string
+		pdHost   string
+		pdPort   int
+		SSLCA    string
+		SSLCert  string
+		SSLKey   string
+		tableID  int64
+		zone     string
+		region   string
+		dryRun   bool
+		showOnly bool
 	)
 
 	cmd := &cobra.Command{
@@ -59,7 +60,7 @@ func NewCtlCmd() *cobra.Command {
 				conf.Args = append(conf.Args, SSLKey)
 			}
 			client := conf.GetClient()
-			if err := balancer.Schedule(client, tableID, zone, region, dryRun); err != nil {
+			if err := balancer.Schedule(client, tableID, zone, region, dryRun, showOnly); err != nil {
 				cmd.PrintErrln(err)
 			}
 		},
@@ -76,6 +77,7 @@ func NewCtlCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&zone, "zone", "z", "", "Zone Name")
 	cmd.Flags().StringVarP(&region, "region", "r", "", "Region Name")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "", true, "Print the transfer peer operator without running")
+	cmd.Flags().BoolVarP(&showOnly, "show-only", "", false, "Only show the region distribution")
 
 	cmd.MarkFlagRequired("table")
 
