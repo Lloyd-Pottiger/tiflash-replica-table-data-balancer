@@ -64,7 +64,7 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
 			toStore := &tiflashStores[j]
 			fromStoreRegionSet := &fromStore.RegionIDSet
 			toStoreRegionSet := &toStore.RegionIDSet
-      numRegionsFromBeg, numRegionsToBeg := len(*fromStoreRegionSet), len(*toStoreRegionSet)
+      			numRegionsFromBeg, numRegionsToBeg := len(*fromStoreRegionSet), len(*toStoreRegionSet)
 			numOperatorGen := 0
 			log.Info("checking transfer peer", zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID))
 			for regionID := range *fromStoreRegionSet {
