@@ -18,6 +18,7 @@ func NewHttpCmd() *cobra.Command {
 		tableID int64
 		zone    string
 		region  string
+		dryRun  bool
 	)
 
 	cmd := &cobra.Command{
@@ -33,7 +34,7 @@ func NewHttpCmd() *cobra.Command {
 				},
 			}
 			client := conf.GetClient()
-			if err := balancer.Schedule(client, tableID, zone, region); err != nil {
+			if err := balancer.Schedule(client, tableID, zone, region, dryRun); err != nil {
 				cmd.PrintErrln(err)
 			}
 		},
@@ -48,6 +49,7 @@ func NewHttpCmd() *cobra.Command {
 	cmd.Flags().Int64VarP(&tableID, "table", "t", 0, "Table ID")
 	cmd.Flags().StringVarP(&zone, "zone", "z", "", "Zone Name")
 	cmd.Flags().StringVarP(&region, "region", "r", "", "Region Name")
+	cmd.Flags().BoolVarP(&dryRun, "dry-run", "", true, "Print the transfer peer operator without running")
 
 	cmd.MarkFlagRequired("table")
 

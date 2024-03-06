@@ -3,6 +3,7 @@ package balancer
 import (
 	"cmp"
 	"encoding/hex"
+	"fmt"
 	"slices"
 
 	"github.com/pingcap/errors"
@@ -25,7 +26,7 @@ func InitTiFlashStore(id int64, regionIDs []int64) TiFlashStore {
 	return TiFlashStore{ID: id, RegionIDSet: regionIDSet}
 }
 
-func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
+func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun bool) error {
 	tiflashStoreIDs, err := pd.GetAllTiFlashStores(zone, region)
 	if err != nil {
 		return err
@@ -64,7 +65,7 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
 			toStore := &tiflashStores[j]
 			fromStoreRegionSet := &fromStore.RegionIDSet
 			toStoreRegionSet := &toStore.RegionIDSet
-      			numRegionsFromBeg, numRegionsToBeg := len(*fromStoreRegionSet), len(*toStoreRegionSet)
+			numRegionsFromBeg, numRegionsToBeg := len(*fromStoreRegionSet), len(*toStoreRegionSet)
 			numOperatorGen := 0
 			log.Info("checking transfer peer", zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID))
 			for regionID := range *fromStoreRegionSet {
@@ -75,10 +76,14 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string) error {
 					// If the region is already in the target store, skip it
 					continue
 				}
-				if err := pd.AddTransferPeerOperator(regionID, fromStore.ID, toStore.ID); err != nil {
-					return err
+				if dryRun {
+					log.Info(fmt.Sprintf("operator add transfer-peer %d %d %d", regionID, fromStore.ID, toStore.ID))
+				} else {
+					log.Info("transfer peer", zap.Int64("region-id", regionID), zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID))
+					if err := pd.AddTransferPeerOperator(regionID, fromStore.ID, toStore.ID); err != nil {
+						return err
+					}
 				}
-				log.Info("transfer peer", zap.Int64("region-id", regionID), zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID))
 				delete(*fromStoreRegionSet, regionID)
 				(*toStoreRegionSet)[regionID] = struct{}{}
 				numOperatorGen += 1
