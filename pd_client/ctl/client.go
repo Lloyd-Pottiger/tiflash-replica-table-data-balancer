@@ -5,11 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"strconv"
 
-	client "github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/pd_client"
+	tidbcodec "github.com/JaySon-Huang/tiflash-ctl/pkg/tidb"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
 	pdhttp "github.com/tikv/pd/client/http"
@@ -98,25 +97,7 @@ func (pd *PDCtl) GetStoreRegionIDsInGivenRange(storeID int64, startKey, endKey [
 }
 
 func (pd *PDCtl) GetTableKeyRange(tableID int64) ([]byte, []byte, error) {
-	outputFile := fmt.Sprintf("rule-tiflash-table-%v-r.json", tableID)
-	args := append(pd.Args, "config", "placement-rules", "load", "--group", "tiflash", "--id", fmt.Sprintf("table-%v-r", tableID), "--out", outputFile)
-	_, err := execute(pd.Command, args...)
-	if err != nil {
-		return nil, nil, err
-	}
-	data, err := os.ReadFile(outputFile)
-	if err != nil {
-		return nil, nil, err
-	}
-	var rules []pdhttp.Rule
-	if err := json.Unmarshal(data, &rules); err != nil {
-		return nil, nil, err
-	}
-	if len(rules) != 1 {
-		return nil, nil, errors.New("invalid rule count")
-	}
-	os.Remove(outputFile)
-	rule := &rules[0]
-	startKey, endKey := client.Codec.EncodeRegionRange(rule.StartKey, rule.EndKey)
-	return startKey, endKey, nil
+	startKey := tidbcodec.NewTableStartAsKey(tableID)
+	endKey := tidbcodec.NewTableEndAsKey(tableID)
+	return startKey.GetBytes(), endKey.GetBytes(), nil
 }
