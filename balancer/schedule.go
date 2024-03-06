@@ -51,7 +51,7 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun, sh
 		if err != nil {
 			return err
 		}
-		log.Info("store region", zap.Int64("store-id", storeID), zap.Int("num-region", len(regionIDs)), zap.Any("region", regionIDs))
+		// log.Info("store region", zap.Int64("store-id", storeID), zap.Int("num-region", len(regionIDs)), zap.Any("region", regionIDs))
 		totalRegionCount += len(regionIDs)
 		tiflashStores = append(tiflashStores, InitTiFlashStore(storeID, regionIDs))
 	}
