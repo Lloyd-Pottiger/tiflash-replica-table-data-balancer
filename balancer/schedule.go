@@ -34,6 +34,10 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun boo
 	if len(tiflashStoreIDs) < 2 {
 		return errors.New("TiFlash stores less than 2")
 	}
+	log.Info("schedule run", zap.String("zone", zone), zap.String("region", region), zap.Bool("dry-run", dryRun))
+	if dryRun {
+		log.Info("Schedule running in dry-run mode, it will only print the operator commands. If you want to send the operators to PD, add --dry-run=false")
+	}
 	log.Info("TiFlash stores", zap.String("zone", zone), zap.String("region", region), zap.Int("num-store", len(tiflashStoreIDs)), zap.Any("store-ids", tiflashStoreIDs))
 	startKey, endKey, err := pd.GetTableKeyRange(tableID)
 	if err != nil {
@@ -68,7 +72,10 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun boo
 			toStoreRegionSet := &toStore.RegionIDSet
 			numRegionsFromBeg, numRegionsToBeg := len(*fromStoreRegionSet), len(*toStoreRegionSet)
 			numOperatorGen := 0
-			log.Info("checking transfer peer", zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID))
+			log.Info("checking transfer peer",
+				zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID),
+				zap.Int("num-from-regions-beg", numRegionsFromBeg),
+				zap.Int("num-to-regions-beg", numRegionsToBeg))
 			for regionID := range *fromStoreRegionSet {
 				if len(*fromStoreRegionSet) <= expectedRegionCountPerStore || len(*toStoreRegionSet) >= expectedRegionCountPerStore {
 					break
