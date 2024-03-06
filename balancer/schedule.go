@@ -51,7 +51,8 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun boo
 		totalRegionCount += len(regionIDs)
 		tiflashStores = append(tiflashStores, InitTiFlashStore(storeID, regionIDs))
 	}
-	log.Info("total region peer count", zap.Int("total-num-region-peer", totalRegionCount))
+	expectedRegionCountPerStore := totalRegionCount / len(tiflashStores)
+	log.Info("total region peer count", zap.Int("total-num-region-peer", totalRegionCount), zap.Int("expect-num-region-per-store", expectedRegionCountPerStore))
 	// sort TiFlash stores by region count in descending order
 	slices.SortStableFunc(tiflashStores, func(lhs, rhs TiFlashStore) int {
 		return -cmp.Compare(len(lhs.RegionIDSet), len(rhs.RegionIDSet))
@@ -69,7 +70,7 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun boo
 			numOperatorGen := 0
 			log.Info("checking transfer peer", zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID))
 			for regionID := range *fromStoreRegionSet {
-				if len(*fromStoreRegionSet) <= totalRegionCount/len(tiflashStores) || len(*toStoreRegionSet) >= totalRegionCount/len(tiflashStores) {
+				if len(*fromStoreRegionSet) <= expectedRegionCountPerStore || len(*toStoreRegionSet) >= expectedRegionCountPerStore {
 					break
 				}
 				if _, exist := (*toStoreRegionSet)[regionID]; exist {
