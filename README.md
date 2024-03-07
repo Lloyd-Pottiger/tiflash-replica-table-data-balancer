@@ -14,6 +14,13 @@ or
 ./balancer ctl --table <table_id> --ctl-path <path_of_pd_ctl>
 ```
 
+or
+
+```bash
+./balancer local --table <table_id> --regions <file_1> <file_2> --stores <store_file>
+```
+
+
 ## How to get table_id
 
 Connect to TiDB and run the following SQL:
