@@ -13,19 +13,6 @@ import (
 	client "github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/pd_client"
 )
 
-type TiFlashStore struct {
-	ID          int64
-	RegionIDSet map[int64]struct{}
-}
-
-func InitTiFlashStore(id int64, regionIDs []int64) TiFlashStore {
-	regionIDSet := make(map[int64]struct{})
-	for _, regionID := range regionIDs {
-		regionIDSet[regionID] = struct{}{}
-	}
-	return TiFlashStore{ID: id, RegionIDSet: regionIDSet}
-}
-
 func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun, showOnly bool) error {
 	tiflashStoreIDs, err := pd.GetAllTiFlashStores(zone, region)
 	if err != nil {
@@ -44,32 +31,31 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun, sh
 		return err
 	}
 	log.Info("Key range for table", zap.Int64("table-id", tableID), zap.String("start-key", hex.EncodeToString(startKey)), zap.String("end-key", hex.EncodeToString(endKey)))
-	var tiflashStores []TiFlashStore
-	totalRegionCount := 0
-	for _, storeID := range tiflashStoreIDs {
-		regionIDs, err := pd.GetStoreRegionIDsInGivenRange(storeID, startKey, endKey)
-		if err != nil {
-			return err
-		}
-		// log.Info("store region", zap.Int64("store-id", storeID), zap.Int("num-region", len(regionIDs)), zap.Any("region", regionIDs))
-		totalRegionCount += len(regionIDs)
-		tiflashStores = append(tiflashStores, InitTiFlashStore(storeID, regionIDs))
+	tiflashStores, err := pd.GetStoreRegionSetInGivenRange(tiflashStoreIDs, startKey, endKey)
+	if err != nil {
+		return err
 	}
-	expectedRegionCountPerStore := totalRegionCount / len(tiflashStores)
-	log.Info("total region peer count", zap.Int("total-num-region-peer", totalRegionCount), zap.Int("expect-num-region-per-store", expectedRegionCountPerStore))
+	if len(tiflashStores) == 0 {
+		return errors.New("This table has no TiFlash replica")
+	}
+	totalRegionCount := 0
+	for _, store := range tiflashStores {
+		totalRegionCount += len(store.RegionIDSet)
+	}
 	for _, store := range tiflashStores {
 		log.Info("store region dist",
 			zap.Int64("store-id", store.ID),
 			zap.Int("num-region", len(store.RegionIDSet)),
 			zap.Float64("percentage", float64(len(store.RegionIDSet))/float64(totalRegionCount)))
 	}
+	expectedRegionCountPerStore := totalRegionCount / len(tiflashStores)
+	log.Info("Total region peer count", zap.Int("total-num-region-peer", totalRegionCount), zap.Int("expect-num-region-per-store", expectedRegionCountPerStore))
 	if showOnly {
 		// only show the region distribution
 		return nil
 	}
-
 	// sort TiFlash stores by region count in descending order
-	slices.SortStableFunc(tiflashStores, func(lhs, rhs TiFlashStore) int {
+	slices.SortStableFunc(tiflashStores, func(lhs, rhs *client.TiFlashStoreRegionSet) int {
 		return -cmp.Compare(len(lhs.RegionIDSet), len(rhs.RegionIDSet))
 	})
 	// balance TiFlash stores
@@ -77,21 +63,21 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun, sh
 	log.Info("balance begin")
 	for i := 0; i < len(tiflashStores)-1; i++ {
 		for j := len(tiflashStores) - 1; j > i; j-- {
-			fromStore := &tiflashStores[i]
-			toStore := &tiflashStores[j]
-			fromStoreRegionSet := &fromStore.RegionIDSet
-			toStoreRegionSet := &toStore.RegionIDSet
-			numRegionsFromBeg, numRegionsToBeg := len(*fromStoreRegionSet), len(*toStoreRegionSet)
+			fromStore := tiflashStores[i]
+			toStore := tiflashStores[j]
+			fromStoreRegionSet := fromStore.RegionIDSet
+			toStoreRegionSet := toStore.RegionIDSet
+			numRegionsFromBeg, numRegionsToBeg := len(fromStoreRegionSet), len(toStoreRegionSet)
 			numOperatorGen := 0
 			log.Info("checking transfer peer",
 				zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID),
 				zap.Int("num-from-regions-beg", numRegionsFromBeg),
 				zap.Int("num-to-regions-beg", numRegionsToBeg))
-			for regionID := range *fromStoreRegionSet {
-				if len(*fromStoreRegionSet) <= expectedRegionCountPerStore || len(*toStoreRegionSet) >= expectedRegionCountPerStore {
+			for regionID := range fromStoreRegionSet {
+				if len(fromStoreRegionSet) <= expectedRegionCountPerStore || len(toStoreRegionSet) >= expectedRegionCountPerStore {
 					break
 				}
-				if _, exist := (*toStoreRegionSet)[regionID]; exist {
+				if _, exist := (toStoreRegionSet)[regionID]; exist {
 					// If the region is already in the target store, skip it
 					continue
 				}
@@ -103,11 +89,11 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun, sh
 						return err
 					}
 				}
-				delete(*fromStoreRegionSet, regionID)
-				(*toStoreRegionSet)[regionID] = struct{}{}
+				delete(fromStoreRegionSet, regionID)
+				toStoreRegionSet[regionID] = struct{}{}
 				numOperatorGen += 1
 			}
-			numRegionsFromEnd, numRegionsToEnd := len(*fromStoreRegionSet), len(*toStoreRegionSet)
+			numRegionsFromEnd, numRegionsToEnd := len(fromStoreRegionSet), len(toStoreRegionSet)
 			log.Info("generate transfer peer",
 				zap.Int64("from-store", fromStore.ID), zap.Int64("to-store", toStore.ID),
 				zap.Int("num-from-regions-beg", numRegionsFromBeg), zap.Int("num-from-regions-end", numRegionsFromEnd),
