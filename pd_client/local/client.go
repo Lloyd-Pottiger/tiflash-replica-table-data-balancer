@@ -25,13 +25,13 @@ func (pd *LocalClient) GetAllTiFlashStores(zone, region string) ([]int64, error)
 	if err != nil {
 		return nil, err
 	}
-	var stores []pdhttp.StoreInfo
+	var stores pdhttp.StoresInfo
 	err = json.Unmarshal(data, &stores)
 	if err != nil {
-		return nil, errors.Annotate(err, "get all TiFlash stores failed")
+		return nil, errors.Annotate(err, fmt.Sprintf("get all TiFlash stores failed from %s", pd.StoresFile))
 	}
 	var storeIDs []int64
-	for _, store := range stores {
+	for _, store := range stores.Stores {
 		for _, label := range store.Store.Labels {
 			if label.Key == "region" && label.Value != region || label.Key == "zone" && label.Value != zone {
 				continue

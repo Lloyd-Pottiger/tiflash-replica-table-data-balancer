@@ -38,15 +38,18 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun, sh
 	if len(tiflashStores) == 0 {
 		return errors.New("This table has no TiFlash replica")
 	}
+
+	// Show the distribution among all tiflash stores
 	totalRegionCount := 0
 	for _, store := range tiflashStores {
 		totalRegionCount += len(store.RegionIDSet)
 	}
 	for _, store := range tiflashStores {
+		percentage := 100 * float64(len(store.RegionIDSet)) / float64(totalRegionCount)
 		log.Info("store region dist",
 			zap.Int64("store-id", store.ID),
 			zap.Int("num-region", len(store.RegionIDSet)),
-			zap.Float64("percentage", float64(len(store.RegionIDSet))/float64(totalRegionCount)))
+			zap.String("percentage", fmt.Sprintf("%.2f%%", percentage)))
 	}
 	expectedRegionCountPerStore := totalRegionCount / len(tiflashStores)
 	log.Info("Total region peer count", zap.Int("total-num-region-peer", totalRegionCount), zap.Int("expect-num-region-per-store", expectedRegionCountPerStore))
@@ -54,6 +57,7 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun, sh
 		// only show the region distribution
 		return nil
 	}
+
 	// sort TiFlash stores by region count in descending order
 	slices.SortStableFunc(tiflashStores, func(lhs, rhs *client.TiFlashStoreRegionSet) int {
 		return -cmp.Compare(len(lhs.RegionIDSet), len(rhs.RegionIDSet))

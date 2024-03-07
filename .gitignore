@@ -24,8 +24,10 @@ go.work
 .env
 
 # build binary
-bin
+bin/
 
 # IDE files
 .idea
 .vscode/
+
+*.json

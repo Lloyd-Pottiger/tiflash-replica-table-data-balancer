@@ -32,7 +32,8 @@ func NewLocalCmd() *cobra.Command {
 				StoresFile:   StoresFile,
 				RegionsFiles: RegionsFiles,
 			}
-			if err := balancer.Schedule(client, tableID, zone, region, dryRun, showOnly); err != nil {
+			// dryRun always true in local mode
+			if err := balancer.Schedule(client, tableID, zone, region, true, showOnly); err != nil {
 				cmd.PrintErrln(err)
 			}
 		},
