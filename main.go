@@ -29,6 +29,7 @@ func init() {
 	rootCmd.AddCommand(
 		cmd.NewHttpCmd(),
 		cmd.NewCtlCmd(),
+		cmd.NewLocalCmd(),
 	)
 }
 
