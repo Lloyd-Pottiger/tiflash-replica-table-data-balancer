@@ -32,8 +32,8 @@ func (pd *LocalClient) GetAllTiFlashStores(zone, region string) ([]int64, error)
 	}
 	var storeIDs []int64
 	for _, store := range stores.Stores {
-		var location_match = true
-		var engine_match = false
+		var location_match = true // by default it is true because "zone"/"region" could be empty
+		var engine_match = false  // by default it is false because tikv doesn't contains the "engine" label
 		for _, label := range store.Store.Labels {
 			if (label.Key == "region" && label.Value != region) || (label.Key == "zone" && label.Value != zone) {
 				// location not match, skip this store
