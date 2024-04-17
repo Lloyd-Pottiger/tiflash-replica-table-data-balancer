@@ -34,6 +34,20 @@ func (pd *PDHttp) AddTransferPeerOperator(regionID, fromStoreID, toStoreID int64
 	return postJSON(pd.rawHttpClient, pd.schema, pd.Endpoint, "/pd/api/v1/operators", data)
 }
 
+func (pd *PDHttp) AddCreatePeerOperator(regionID, storeID int64) error {
+	// TODO: Use PD HTTP SDK when it is available
+	input := make(map[string]any)
+	input["name"] = "transfer-peer"
+	input["region_id"] = regionID
+	input["store_id"] = storeID
+
+	data, err := json.Marshal(input)
+	if err != nil {
+		return errors.Annotate(err, "marshal transfer peer operator failed")
+	}
+	return postJSON(pd.rawHttpClient, pd.schema, pd.Endpoint, "/pd/api/v1/operators", data)
+}
+
 func (pd *PDHttp) GetAllTiFlashStores(zone, region string) ([]int64, error) {
 	stores, err := pd.Client.GetStores(context.Background())
 	if err != nil {
@@ -42,7 +56,10 @@ func (pd *PDHttp) GetAllTiFlashStores(zone, region string) ([]int64, error) {
 	var storeIDs []int64
 	for _, store := range stores.Stores {
 		for _, label := range store.Store.Labels {
-			if label.Key == "region" && label.Value != region || label.Key == "zone" && label.Value != zone {
+			if region != "" && label.Key == "region" && label.Value != region {
+				continue
+			}
+			if zone != "" && label.Key == "zone" && label.Value != zone {
 				continue
 			}
 			if label.Key == "engine" && label.Value == "tiflash" {
@@ -52,6 +69,14 @@ func (pd *PDHttp) GetAllTiFlashStores(zone, region string) ([]int64, error) {
 		}
 	}
 	return storeIDs, nil
+}
+
+func (pd *PDHttp) GetRegions() ([]pdhttp.RegionInfo, error) {
+	result, err := pd.Client.GetRegions(context.Background())
+	if err != nil {
+		return nil, errors.Annotate(err, "get all TiFlash regions failed")
+	}
+	return result.Regions, nil
 }
 
 func (pd *PDHttp) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKey []byte) ([]*client.TiFlashStoreRegionSet, error) {

@@ -37,6 +37,10 @@ func (pd *PDCtl) AddTransferPeerOperator(regionID, fromStoreID, toStoreID int64)
 	return err
 }
 
+func (pd *PDCtl) AddCreatePeerOperator(regionID, storeID int64) error {
+	return errors.New("Do not support pd-ctl")
+}
+
 func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, error) {
 	jqQuery := `select(.store.labels[]? | select(.key == "engine" and .value == "tiflash"))`
 	if len(zone) > 0 && len(region) > 0 {
@@ -63,6 +67,10 @@ func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, error) {
 		storeIDs = append(storeIDs, store.Store.ID)
 	}
 	return storeIDs, nil
+}
+
+func (pd *PDCtl) GetRegions() ([]pdhttp.RegionInfo, error) {
+	panic("Do not support pd-ctl")
 }
 
 func (pd *PDCtl) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKey []byte) ([]*client.TiFlashStoreRegionSet, error) {
