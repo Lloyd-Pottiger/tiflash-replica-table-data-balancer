@@ -55,7 +55,43 @@ func GetRegionsWithTiFlashReplicaLiveness(regions []pdhttp.RegionInfo, tiflashSt
 	return resultAlive, resultDead
 }
 
-func PickOneTiFlashStore(region *pdhttp.RegionInfo, stores map[int64]pdhttp.StoreInfo, offlineStoreIdMap map[int64]int) *pdhttp.StoreInfo {
+func LocationLabelMatch(stores map[int64]pdhttp.StoreInfo, candidate *pdhttp.StoreInfo, offlineStores []int64) bool {
+	candidateRegion := ""
+	candidateZone := ""
+	for _, label := range candidate.Store.Labels {
+		if label.Key == "region" {
+			candidateRegion = label.Value
+		}
+		if label.Key == "zone" {
+			candidateZone = label.Value
+		}
+	}
+	for _, offlineId := range offlineStores {
+		offlineStore, ok := stores[offlineId]
+		if !ok {
+			continue
+		}
+		totallyMatch := true
+		for _, label := range offlineStore.Store.Labels {
+			if label.Key == "region" && label.Value != candidateRegion {
+				totallyMatch = false
+				break
+			}
+			if label.Key == "zone" && label.Value != candidateZone {
+				totallyMatch = false
+				break
+			}
+		}
+		if totallyMatch {
+			return true
+		}
+	}
+	return false
+}
+
+func PickOneTiFlashStore(region *pdhttp.RegionInfo, stores map[int64]pdhttp.StoreInfo, offlineStoreIdMap map[int64]int, offlineStoreIds []int64) *pdhttp.StoreInfo {
+	var candidate *pdhttp.StoreInfo
+	candidate = nil
 	for storeID, storeInfo := range stores {
 		alreadyHasPeer := false
 		for _, p := range region.Peers {
@@ -66,10 +102,14 @@ func PickOneTiFlashStore(region *pdhttp.RegionInfo, stores map[int64]pdhttp.Stor
 		}
 		_, isOffline := offlineStoreIdMap[storeID]
 		if !isOffline && !alreadyHasPeer {
-			return &storeInfo
+			if LocationLabelMatch(stores, &storeInfo, offlineStoreIds) {
+				return &storeInfo
+			} else {
+				candidate = &storeInfo
+			}
 		}
 	}
-	return nil
+	return candidate
 }
 
 func ScheduleRegion(pd client.PDClient, offlineStoreIds []int64, offline, dryRun bool) error {
@@ -127,7 +167,7 @@ func ScheduleRegion(pd client.PDClient, offlineStoreIds []int64, offline, dryRun
 	}
 
 	for _, region := range tiflashDeadRegions {
-		pickStore := PickOneTiFlashStore(&region, tiflashStoreMap, offlineStoreIdMap)
+		pickStore := PickOneTiFlashStore(&region, tiflashStoreMap, offlineStoreIdMap, offlineStoreIds)
 		if pickStore == nil {
 			log.Warn("Failed to find another store to place this region",
 				zap.Any("region", region))
