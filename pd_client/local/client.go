@@ -24,17 +24,18 @@ func (pd *LocalClient) AddCreatePeerOperator(regionID, storeID int64) error {
 	return errors.New("Not supported")
 }
 
-func (pd *LocalClient) GetAllTiFlashStores(zone, region string) ([]int64, error) {
+func (pd *LocalClient) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]pdhttp.StoreInfo, error) {
 	data, err := os.ReadFile(pd.StoresFile)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var stores pdhttp.StoresInfo
 	err = json.Unmarshal(data, &stores)
 	if err != nil {
-		return nil, errors.Annotate(err, fmt.Sprintf("get all TiFlash stores failed from %s", pd.StoresFile))
+		return nil, nil, errors.Annotate(err, fmt.Sprintf("get all TiFlash stores failed from %s", pd.StoresFile))
 	}
 	var storeIDs []int64
+	storesMap := make(map[int64]pdhttp.StoreInfo)
 	for _, store := range stores.Stores {
 		var location_match = true // by default it is true because "zone"/"region" could be empty
 		var engine_match = false  // by default it is false because tikv doesn't contains the "engine" label
@@ -53,9 +54,10 @@ func (pd *LocalClient) GetAllTiFlashStores(zone, region string) ([]int64, error)
 		}
 		if engine_match && location_match {
 			storeIDs = append(storeIDs, store.Store.ID)
+			storesMap[store.Store.ID] = store
 		}
 	}
-	return storeIDs, nil
+	return storeIDs, storesMap, nil
 }
 
 func (pd *LocalClient) GetRegions() ([]pdhttp.RegionInfo, error) {

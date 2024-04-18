@@ -48,12 +48,13 @@ func (pd *PDHttp) AddCreatePeerOperator(regionID, storeID int64) error {
 	return postJSON(pd.rawHttpClient, pd.schema, pd.Endpoint, "/pd/api/v1/operators", data)
 }
 
-func (pd *PDHttp) GetAllTiFlashStores(zone, region string) ([]int64, error) {
+func (pd *PDHttp) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]pdhttp.StoreInfo, error) {
 	stores, err := pd.Client.GetStores(context.Background())
 	if err != nil {
-		return nil, errors.Annotate(err, "get all TiFlash stores failed")
+		return nil, nil, errors.Annotate(err, "get all TiFlash stores failed")
 	}
 	var storeIDs []int64
+	storesMap := make(map[int64]pdhttp.StoreInfo)
 	for _, store := range stores.Stores {
 		for _, label := range store.Store.Labels {
 			if region != "" && label.Key == "region" && label.Value != region {
@@ -64,11 +65,12 @@ func (pd *PDHttp) GetAllTiFlashStores(zone, region string) ([]int64, error) {
 			}
 			if label.Key == "engine" && label.Value == "tiflash" {
 				storeIDs = append(storeIDs, store.Store.ID)
+				storesMap[store.Store.ID] = store
 				break
 			}
 		}
 	}
-	return storeIDs, nil
+	return storeIDs, storesMap, nil
 }
 
 func (pd *PDHttp) GetRegions() ([]pdhttp.RegionInfo, error) {
