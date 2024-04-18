@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	tidbcodec "github.com/JaySon-Huang/tiflash-ctl/pkg/tidb"
@@ -46,6 +47,10 @@ func (pd *PDHttp) AddCreatePeerOperator(regionID, storeID int64) error {
 		return errors.Annotate(err, "marshal transfer peer operator failed")
 	}
 	return postJSON(pd.rawHttpClient, pd.schema, pd.Endpoint, "/pd/api/v1/operators", data)
+}
+
+func (pd *PDHttp) DeleteStore(storeID int64) error {
+	return deleteHTTP(pd.rawHttpClient, pd.schema, pd.Endpoint, fmt.Sprintf("/pd/api/v1/store/%v", storeID))
 }
 
 func (pd *PDHttp) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]pdhttp.StoreInfo, error) {

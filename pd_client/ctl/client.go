@@ -72,7 +72,11 @@ func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]pd
 }
 
 func (pd *PDCtl) GetRegions() ([]pdhttp.RegionInfo, error) {
-	panic("Do not support pd-ctl")
+	return nil, errors.New("Not supported")
+}
+
+func (pd *PDCtl) DeleteStore(storeID int64) error {
+	return errors.New("Not supported")
 }
 
 func (pd *PDCtl) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKey []byte) ([]*client.TiFlashStoreRegionSet, error) {

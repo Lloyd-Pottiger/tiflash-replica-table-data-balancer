@@ -61,7 +61,11 @@ func (pd *LocalClient) GetAllTiFlashStores(zone, region string) ([]int64, map[in
 }
 
 func (pd *LocalClient) GetRegions() ([]pdhttp.RegionInfo, error) {
-	panic("Do not support local")
+	return nil, errors.New("Not supported")
+}
+
+func (pd *LocalClient) DeleteStore(storeID int64) error {
+	return errors.New("Not supported")
 }
 
 func (pd *LocalClient) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKey []byte) ([]*client.TiFlashStoreRegionSet, error) {
