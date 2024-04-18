@@ -102,6 +102,7 @@ func PickOneTiFlashStore(region *pdhttp.RegionInfo, stores map[int64]pdhttp.Stor
 		}
 		_, isOffline := offlineStoreIdMap[storeID]
 		if !isOffline && !alreadyHasPeer {
+			// Perfect match directly return
 			if LocationLabelMatch(stores, &storeInfo, offlineStoreIds) {
 				return &storeInfo
 			} else {
