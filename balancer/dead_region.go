@@ -72,7 +72,7 @@ func PickOneTiFlashStore(region *pdhttp.RegionInfo, stores map[int64]pdhttp.Stor
 	return nil
 }
 
-func ScheduleRegion(pd client.PDClient, offlineStoreIds []int64, offline, dryRun, showOnly bool) error {
+func ScheduleRegion(pd client.PDClient, offlineStoreIds []int64, offline, dryRun bool) error {
 	tiflashStoreIDs, tiflashStoreMap, err := pd.GetAllTiFlashStores("", "")
 	if err != nil {
 		return err
@@ -80,7 +80,7 @@ func ScheduleRegion(pd client.PDClient, offlineStoreIds []int64, offline, dryRun
 	if len(tiflashStoreIDs) < 2 {
 		return errors.New("TiFlash stores less than 2")
 	}
-	log.Info("region schedule run", zap.Any("offlineStoreIds", offlineStoreIds), zap.Bool("dry-run", dryRun), zap.Bool("show-only", showOnly))
+	log.Info("region schedule run", zap.Any("offlineStoreIds", offlineStoreIds), zap.Bool("dry-run", dryRun))
 	if dryRun {
 		log.Info("region schedule running in dry-run mode, it will only print the operator commands. If you want to send the operators to PD, add --dry-run=false")
 	}

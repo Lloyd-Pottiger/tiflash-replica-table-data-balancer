@@ -10,15 +10,14 @@ import (
 
 func NewHttpRegionCmd() *cobra.Command {
 	var (
-		pdHost   string
-		pdPort   int
-		SSLCA    string
-		SSLCert  string
-		SSLKey   string
-		Stores   []int
-		Offline  bool
-		dryRun   bool
-		showOnly bool
+		pdHost  string
+		pdPort  int
+		SSLCA   string
+		SSLCert string
+		SSLKey  string
+		Stores  []int
+		Offline bool
+		dryRun  bool
 	)
 
 	cmd := &cobra.Command{
@@ -38,7 +37,7 @@ func NewHttpRegionCmd() *cobra.Command {
 			for _, i := range Stores {
 				offlineStoreIds = append(offlineStoreIds, int64(i))
 			}
-			if err := balancer.ScheduleRegion(client, offlineStoreIds, Offline, dryRun, showOnly); err != nil {
+			if err := balancer.ScheduleRegion(client, offlineStoreIds, Offline, dryRun); err != nil {
 				cmd.PrintErrln(err)
 			}
 		},
@@ -53,7 +52,6 @@ func NewHttpRegionCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&SSLCert, "ssl-cert", "", "", "SSL Cert")
 	cmd.Flags().StringVarP(&SSLKey, "ssl-key", "", "", "SSL Key")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "", true, "Print the transfer peer operator without running")
-	cmd.Flags().BoolVarP(&showOnly, "show-only", "", false, "")
 
 	cmd.MarkFlagRequired("store")
 
