@@ -89,7 +89,6 @@ func LocationLabelMatch(stores map[int64]pdhttp.StoreInfo, candidate *pdhttp.Sto
 
 func PickOneTiFlashStore(region *pdhttp.RegionInfo, stores map[int64]pdhttp.StoreInfo, offlineStoreIdMap map[int64]int, offlineStoreIds []int64) *pdhttp.StoreInfo {
 	var candidate *pdhttp.StoreInfo
-	candidate = nil
 	for storeID, storeInfo := range stores {
 		alreadyHasPeer := false
 		for _, p := range region.Peers {
