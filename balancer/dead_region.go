@@ -10,10 +10,9 @@ import (
 )
 
 func GetRegionsWithTiFlashReplica(pd client.PDClient, tiflashStoreIds map[int64]int) ([]pdhttp.RegionInfo, error) {
-	var result []pdhttp.RegionInfo
-	regions, e := pd.GetRegions()
-	if e != nil {
-		return nil, e
+	regions, err := pd.GetRegions()
+	if err != nil {
+		return nil, err
 	}
 	for _, region := range regions {
 		hasReplica := false
