@@ -30,6 +30,7 @@ func init() {
 		cmd.NewHttpCmd(),
 		cmd.NewCtlCmd(),
 		cmd.NewLocalCmd(),
+		cmd.NewHttpRegionCmd(),
 	)
 }
 

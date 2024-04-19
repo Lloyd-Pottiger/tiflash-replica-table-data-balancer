@@ -35,3 +35,24 @@ func postJSON(httpClient *http.Client, schema, endpoint, prefix string, data []b
 	}
 	return nil
 }
+
+func deleteHTTP(httpClient *http.Client, schema, endpoint, u string) error {
+	url := composeURL(schema, endpoint, u)
+	req, err := http.NewRequest(http.MethodDelete, url, bytes.NewBuffer([]byte{}))
+	if err != nil {
+		return err
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	msg, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return errors.Errorf("[%d] %s", resp.StatusCode, msg)
+	}
+	return nil
+}

@@ -14,7 +14,7 @@ import (
 )
 
 func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun, showOnly bool) error {
-	tiflashStoreIDs, err := pd.GetAllTiFlashStores(zone, region)
+	tiflashStoreIDs, _, err := pd.GetAllTiFlashStores(zone, region)
 	if err != nil {
 		return err
 	}

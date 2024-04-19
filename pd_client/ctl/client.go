@@ -37,7 +37,11 @@ func (pd *PDCtl) AddTransferPeerOperator(regionID, fromStoreID, toStoreID int64)
 	return err
 }
 
-func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, error) {
+func (pd *PDCtl) AddCreatePeerOperator(regionID, storeID int64) error {
+	return errors.New("Do not support pd-ctl")
+}
+
+func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]pdhttp.StoreInfo, error) {
 	jqQuery := `select(.store.labels[]? | select(.key == "engine" and .value == "tiflash"))`
 	if len(zone) > 0 && len(region) > 0 {
 		jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "region" and .value == "%s"))] | select(.store.labels[]? | (.key == "zone" and .value == "%s"))]`, jqQuery, region, zone)
@@ -51,18 +55,28 @@ func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, error) {
 	args := append(pd.Args, "store", "--jq", jqQuery)
 	output, err := execute(pd.Command, args...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var stores []pdhttp.StoreInfo
 	err = json.Unmarshal([]byte(output), &stores)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var storeIDs []int64
+	storesMap := make(map[int64]pdhttp.StoreInfo)
 	for _, store := range stores {
 		storeIDs = append(storeIDs, store.Store.ID)
+		storesMap[store.Store.ID] = store
 	}
-	return storeIDs, nil
+	return storeIDs, storesMap, nil
+}
+
+func (pd *PDCtl) GetRegions() ([]pdhttp.RegionInfo, error) {
+	return nil, errors.New("Not supported")
+}
+
+func (pd *PDCtl) DeleteStore(storeID int64) error {
+	return errors.New("Not supported")
 }
 
 func (pd *PDCtl) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKey []byte) ([]*client.TiFlashStoreRegionSet, error) {
