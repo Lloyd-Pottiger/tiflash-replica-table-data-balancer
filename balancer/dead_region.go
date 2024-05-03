@@ -14,6 +14,7 @@ func GetRegionsWithTiFlashReplica(pd client.PDClient, tiflashStoreIds map[int64]
 	if err != nil {
 		return nil, err
 	}
+	var result []pdhttp.RegionInfo
 	for _, region := range regions {
 		hasReplica := false
 		for _, peer := range region.Peers {
@@ -38,9 +39,9 @@ func GetRegionsWithTiFlashReplicaLiveness(regions []pdhttp.RegionInfo, tiflashSt
 		for _, peer := range region.Peers {
 			_, isTiFlash := tiflashStoreIdMap[peer.StoreID]
 			_, isOffline := offlineStoreIdMap[peer.StoreID]
-			if isTiFlash && ! isOffline {
+			if isTiFlash && !isOffline {
 				alive = true
-			    break
+				break
 			}
 		}
 		if !alive {
