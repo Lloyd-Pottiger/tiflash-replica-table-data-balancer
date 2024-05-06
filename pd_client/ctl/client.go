@@ -8,7 +8,6 @@ import (
 
 	tidbcodec "github.com/JaySon-Huang/tiflash-ctl/pkg/tidb"
 	client "github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/pd_client"
-	pdclient "github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/pd_client"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
 	pdhttp "github.com/tikv/pd/client/http"
@@ -53,7 +52,7 @@ func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]pd
 	if err != nil {
 		return nil, nil, err
 	}
-	return pdclient.GetAllTiFlashStores(stores, zone, region)
+	return client.GetAllTiFlashStores(stores, zone, region)
 }
 
 func (pd *PDCtl) GetRegions() ([]pdhttp.RegionInfo, error) {
@@ -95,31 +94,7 @@ func (pd *PDCtl) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKey
 		StartKey = endKey
 	}
 
-	storeIDSet := make(map[int64]struct{})
-	storeRegionSet := make(map[int64]map[int64]struct{})
-	for _, id := range storeID {
-		storeIDSet[id] = struct{}{}
-		// ensure the StoreID exist in the final result
-		storeRegionSet[id] = make(map[int64]struct{})
-	}
-
-	for _, region := range allRegions {
-		for _, peer := range region.Peers {
-			if _, ok := storeIDSet[peer.StoreID]; ok {
-				// insert the peer to the region set by StoreID
-				if _, ok := storeRegionSet[peer.StoreID]; !ok {
-					storeRegionSet[peer.StoreID] = make(map[int64]struct{})
-				}
-				storeRegionSet[peer.StoreID][region.ID] = struct{}{}
-			}
-		}
-	}
-
-	var result []*client.TiFlashStoreRegionSet
-	for storeID, regionSet := range storeRegionSet {
-		result = append(result, &client.TiFlashStoreRegionSet{ID: storeID, RegionIDSet: regionSet})
-	}
-	return result, nil
+	return client.GetStoreRegionSetByStoreID(allRegions, storeID)
 }
 
 func (pd *PDCtl) GetTableKeyRange(tableID int64) ([]byte, []byte, error) {
