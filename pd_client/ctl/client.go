@@ -77,15 +77,17 @@ func (pd *PDCtl) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKey
 		if err != nil {
 			return nil, errors.Annotate(err, "unmarshal regions failed")
 		}
+		// no more regions left
 		if regions.Count == 0 {
 			break
 		}
-		allRegions = append(allRegions, regions.Regions...)
 
+		allRegions = append(allRegions, regions.Regions...)
 		endRegion := regions.Regions[len(regions.Regions)-1]
 		if len(endRegion.EndKey) == 0 {
 			break
 		}
+		// check whether there are more regions
 		endKey, err := hex.DecodeString(endRegion.EndKey)
 		if err != nil {
 			return nil, errors.Annotate(err, "decode end key failed")
@@ -94,14 +96,17 @@ func (pd *PDCtl) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKey
 	}
 
 	storeIDSet := make(map[int64]struct{})
+	storeRegionSet := make(map[int64]map[int64]struct{})
 	for _, id := range storeID {
 		storeIDSet[id] = struct{}{}
+		// ensure the StoreID exist in the final result
+		storeRegionSet[id] = make(map[int64]struct{})
 	}
 
-	storeRegionSet := make(map[int64]map[int64]struct{})
 	for _, region := range allRegions {
 		for _, peer := range region.Peers {
 			if _, ok := storeIDSet[peer.StoreID]; ok {
+				// insert the peer to the region set by StoreID
 				if _, ok := storeRegionSet[peer.StoreID]; !ok {
 					storeRegionSet[peer.StoreID] = make(map[int64]struct{})
 				}

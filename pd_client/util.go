@@ -1,6 +1,8 @@
 package pdclient
 
-import pdhttp "github.com/tikv/pd/client/http"
+import (
+	pdhttp "github.com/tikv/pd/client/http"
+)
 
 func GetAllTiFlashStores(stores pdhttp.StoresInfo, zone, region string) ([]int64, map[int64]pdhttp.StoreInfo, error) {
 	var storeIDs []int64
@@ -30,3 +32,10 @@ func GetAllTiFlashStores(stores pdhttp.StoresInfo, zone, region string) ([]int64
 	}
 	return storeIDs, storesMap, nil
 }
+
+/*
+func GetStoreRegionSetByStoreID(allRegions []pdhttp.RegionInfo, storeID []int64) ([]*client.TiFlashStoreRegionSet, error) {
+
+}
+
+*/
