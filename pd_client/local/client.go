@@ -27,7 +27,7 @@ func (pd *LocalClient) AddCreatePeerOperator(regionID, storeID int64) error {
 func (pd *LocalClient) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]pdhttp.StoreInfo, error) {
 	data, err := os.ReadFile(pd.StoresFile)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "get all TiFlash stores failed")
 	}
 	var stores pdhttp.StoresInfo
 	err = json.Unmarshal(data, &stores)
@@ -57,6 +57,7 @@ func (pd *LocalClient) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, 
 		if err != nil {
 			return nil, errors.Annotate(err, fmt.Sprintf("failed to parse regions from %s", f))
 		}
+		// no more regions left
 		if regions.Count == 0 {
 			break
 		}

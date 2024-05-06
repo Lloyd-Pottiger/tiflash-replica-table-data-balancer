@@ -45,12 +45,12 @@ func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]pd
 	args := append(pd.Args, "store")
 	output, err := execute(pd.Command, args...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "get all TiFlash stores failed")
 	}
 	var stores pdhttp.StoresInfo
 	err = json.Unmarshal([]byte(output), &stores)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "get all TiFlash stores failed")
 	}
 	return client.GetAllTiFlashStores(stores, zone, region)
 }

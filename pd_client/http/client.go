@@ -77,15 +77,17 @@ func (pd *PDHttp) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKe
 		if err != nil {
 			return nil, errors.Annotate(err, "get regions by key range failed")
 		}
+		// no more regions left
 		if regions.Count == 0 {
 			break
 		}
-		allRegions = append(allRegions, regions.Regions...)
 
+		allRegions = append(allRegions, regions.Regions...)
 		endRegion := regions.Regions[len(regions.Regions)-1]
 		if len(endRegion.EndKey) == 0 {
 			break
 		}
+		// check whether there are more regions
 		endKey, err := hex.DecodeString(endRegion.EndKey)
 		if err != nil {
 			return nil, errors.Annotate(err, "decode end key failed")
