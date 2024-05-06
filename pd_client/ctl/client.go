@@ -42,19 +42,7 @@ func (pd *PDCtl) AddCreatePeerOperator(regionID, storeID int64) error {
 }
 
 func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]pdhttp.StoreInfo, error) {
-	/*
-		jqQuery := `select(.store.labels[]? | select(.key == "engine" and .value == "tiflash"))`
-		if len(zone) > 0 && len(region) > 0 {
-			jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "region" and .value == "%s"))] | select(.store.labels[]? | (.key == "zone" and .value == "%s"))]`, jqQuery, region, zone)
-		} else if len(zone) > 0 {
-			jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "zone" and .value == "%s"))]`, jqQuery, zone)
-		} else if len(region) > 0 {
-			jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "region" and .value == "%s"))]`, jqQuery, region)
-		} else {
-			jqQuery = fmt.Sprintf(`[.stores[] | %s]`, jqQuery)
-		}
-		args := append(pd.Args, "store", "--jq", jqQuery)
-	*/
+	// Note: do not use `jq` because the binary is not always available
 	args := append(pd.Args, "store")
 	output, err := execute(pd.Command, args...)
 	if err != nil {
