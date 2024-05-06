@@ -3,12 +3,12 @@ package ctl
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"os/exec"
 	"strconv"
 
 	tidbcodec "github.com/JaySon-Huang/tiflash-ctl/pkg/tidb"
 	client "github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/pd_client"
+	pdclient "github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/pd_client"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
 	pdhttp "github.com/tikv/pd/client/http"
@@ -42,33 +42,30 @@ func (pd *PDCtl) AddCreatePeerOperator(regionID, storeID int64) error {
 }
 
 func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]pdhttp.StoreInfo, error) {
-	jqQuery := `select(.store.labels[]? | select(.key == "engine" and .value == "tiflash"))`
-	if len(zone) > 0 && len(region) > 0 {
-		jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "region" and .value == "%s"))] | select(.store.labels[]? | (.key == "zone" and .value == "%s"))]`, jqQuery, region, zone)
-	} else if len(zone) > 0 {
-		jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "zone" and .value == "%s"))]`, jqQuery, zone)
-	} else if len(region) > 0 {
-		jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "region" and .value == "%s"))]`, jqQuery, region)
-	} else {
-		jqQuery = fmt.Sprintf(`[.stores[] | %s]`, jqQuery)
-	}
-	args := append(pd.Args, "store", "--jq", jqQuery)
+	/*
+		jqQuery := `select(.store.labels[]? | select(.key == "engine" and .value == "tiflash"))`
+		if len(zone) > 0 && len(region) > 0 {
+			jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "region" and .value == "%s"))] | select(.store.labels[]? | (.key == "zone" and .value == "%s"))]`, jqQuery, region, zone)
+		} else if len(zone) > 0 {
+			jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "zone" and .value == "%s"))]`, jqQuery, zone)
+		} else if len(region) > 0 {
+			jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "region" and .value == "%s"))]`, jqQuery, region)
+		} else {
+			jqQuery = fmt.Sprintf(`[.stores[] | %s]`, jqQuery)
+		}
+		args := append(pd.Args, "store", "--jq", jqQuery)
+	*/
+	args := append(pd.Args, "store")
 	output, err := execute(pd.Command, args...)
 	if err != nil {
 		return nil, nil, err
 	}
-	var stores []pdhttp.StoreInfo
+	var stores pdhttp.StoresInfo
 	err = json.Unmarshal([]byte(output), &stores)
 	if err != nil {
 		return nil, nil, err
 	}
-	var storeIDs []int64
-	storesMap := make(map[int64]pdhttp.StoreInfo)
-	for _, store := range stores {
-		storeIDs = append(storeIDs, store.Store.ID)
-		storesMap[store.Store.ID] = store
-	}
-	return storeIDs, storesMap, nil
+	return pdclient.GetAllTiFlashStores(stores, zone, region)
 }
 
 func (pd *PDCtl) GetRegions() ([]pdhttp.RegionInfo, error) {
