@@ -4,6 +4,11 @@ import (
 	pdhttp "github.com/tikv/pd/client/http"
 )
 
+type TiFlashStoreRegionSet struct {
+	ID          int64
+	RegionIDSet map[int64]struct{}
+}
+
 func GetAllTiFlashStores(stores pdhttp.StoresInfo, zone, region string) ([]int64, map[int64]pdhttp.StoreInfo, error) {
 	var storeIDs []int64
 	storesMap := make(map[int64]pdhttp.StoreInfo)
