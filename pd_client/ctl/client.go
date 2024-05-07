@@ -3,7 +3,6 @@ package ctl
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"os/exec"
 	"strconv"
 
@@ -42,33 +41,18 @@ func (pd *PDCtl) AddCreatePeerOperator(regionID, storeID int64) error {
 }
 
 func (pd *PDCtl) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]pdhttp.StoreInfo, error) {
-	jqQuery := `select(.store.labels[]? | select(.key == "engine" and .value == "tiflash"))`
-	if len(zone) > 0 && len(region) > 0 {
-		jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "region" and .value == "%s"))] | select(.store.labels[]? | (.key == "zone" and .value == "%s"))]`, jqQuery, region, zone)
-	} else if len(zone) > 0 {
-		jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "zone" and .value == "%s"))]`, jqQuery, zone)
-	} else if len(region) > 0 {
-		jqQuery = fmt.Sprintf(`[.stores[] | %s | select(.store.labels[]? | (.key == "region" and .value == "%s"))]`, jqQuery, region)
-	} else {
-		jqQuery = fmt.Sprintf(`[.stores[] | %s]`, jqQuery)
-	}
-	args := append(pd.Args, "store", "--jq", jqQuery)
+	// Note: do not use `jq` because the binary is not always available
+	args := append(pd.Args, "store")
 	output, err := execute(pd.Command, args...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "get all TiFlash stores failed")
 	}
-	var stores []pdhttp.StoreInfo
+	var stores pdhttp.StoresInfo
 	err = json.Unmarshal([]byte(output), &stores)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "get all TiFlash stores failed")
 	}
-	var storeIDs []int64
-	storesMap := make(map[int64]pdhttp.StoreInfo)
-	for _, store := range stores {
-		storeIDs = append(storeIDs, store.Store.ID)
-		storesMap[store.Store.ID] = store
-	}
-	return storeIDs, storesMap, nil
+	return client.GetAllTiFlashStores(stores, zone, region)
 }
 
 func (pd *PDCtl) GetRegions() ([]pdhttp.RegionInfo, error) {
@@ -92,15 +76,17 @@ func (pd *PDCtl) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKey
 		if err != nil {
 			return nil, errors.Annotate(err, "unmarshal regions failed")
 		}
+		// no more regions left
 		if regions.Count == 0 {
 			break
 		}
-		allRegions = append(allRegions, regions.Regions...)
 
+		allRegions = append(allRegions, regions.Regions...)
 		endRegion := regions.Regions[len(regions.Regions)-1]
 		if len(endRegion.EndKey) == 0 {
 			break
 		}
+		// check whether there are more regions
 		endKey, err := hex.DecodeString(endRegion.EndKey)
 		if err != nil {
 			return nil, errors.Annotate(err, "decode end key failed")
@@ -108,28 +94,7 @@ func (pd *PDCtl) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKey
 		StartKey = endKey
 	}
 
-	storeIDSet := make(map[int64]struct{})
-	for _, id := range storeID {
-		storeIDSet[id] = struct{}{}
-	}
-
-	storeRegionSet := make(map[int64]map[int64]struct{})
-	for _, region := range allRegions {
-		for _, peer := range region.Peers {
-			if _, ok := storeIDSet[peer.StoreID]; ok {
-				if _, ok := storeRegionSet[peer.StoreID]; !ok {
-					storeRegionSet[peer.StoreID] = make(map[int64]struct{})
-				}
-				storeRegionSet[peer.StoreID][region.ID] = struct{}{}
-			}
-		}
-	}
-
-	var result []*client.TiFlashStoreRegionSet
-	for storeID, regionSet := range storeRegionSet {
-		result = append(result, &client.TiFlashStoreRegionSet{ID: storeID, RegionIDSet: regionSet})
-	}
-	return result, nil
+	return client.GetStoreRegionSetByStoreID(allRegions, storeID)
 }
 
 func (pd *PDCtl) GetTableKeyRange(tableID int64) ([]byte, []byte, error) {

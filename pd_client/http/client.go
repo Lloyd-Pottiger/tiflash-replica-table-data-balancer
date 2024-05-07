@@ -58,24 +58,7 @@ func (pd *PDHttp) GetAllTiFlashStores(zone, region string) ([]int64, map[int64]p
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "get all TiFlash stores failed")
 	}
-	var storeIDs []int64
-	storesMap := make(map[int64]pdhttp.StoreInfo)
-	for _, store := range stores.Stores {
-		for _, label := range store.Store.Labels {
-			if region != "" && label.Key == "region" && label.Value != region {
-				continue
-			}
-			if zone != "" && label.Key == "zone" && label.Value != zone {
-				continue
-			}
-			if label.Key == "engine" && label.Value == "tiflash" {
-				storeIDs = append(storeIDs, store.Store.ID)
-				storesMap[store.Store.ID] = store
-				break
-			}
-		}
-	}
-	return storeIDs, storesMap, nil
+	return client.GetAllTiFlashStores(*stores, zone, region)
 }
 
 func (pd *PDHttp) GetRegions() ([]pdhttp.RegionInfo, error) {
@@ -94,15 +77,17 @@ func (pd *PDHttp) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKe
 		if err != nil {
 			return nil, errors.Annotate(err, "get regions by key range failed")
 		}
+		// no more regions left
 		if regions.Count == 0 {
 			break
 		}
-		allRegions = append(allRegions, regions.Regions...)
 
+		allRegions = append(allRegions, regions.Regions...)
 		endRegion := regions.Regions[len(regions.Regions)-1]
 		if len(endRegion.EndKey) == 0 {
 			break
 		}
+		// check whether there are more regions
 		endKey, err := hex.DecodeString(endRegion.EndKey)
 		if err != nil {
 			return nil, errors.Annotate(err, "decode end key failed")
@@ -110,28 +95,7 @@ func (pd *PDHttp) GetStoreRegionSetInGivenRange(storeID []int64, StartKey, EndKe
 		StartKey = endKey
 	}
 
-	storeIDSet := make(map[int64]struct{})
-	for _, id := range storeID {
-		storeIDSet[id] = struct{}{}
-	}
-
-	storeRegionSet := make(map[int64]map[int64]struct{})
-	for _, region := range allRegions {
-		for _, peer := range region.Peers {
-			if _, ok := storeIDSet[peer.StoreID]; ok {
-				if _, ok := storeRegionSet[peer.StoreID]; !ok {
-					storeRegionSet[peer.StoreID] = make(map[int64]struct{})
-				}
-				storeRegionSet[peer.StoreID][region.ID] = struct{}{}
-			}
-		}
-	}
-
-	var result []*client.TiFlashStoreRegionSet
-	for storeID, regionSet := range storeRegionSet {
-		result = append(result, &client.TiFlashStoreRegionSet{ID: storeID, RegionIDSet: regionSet})
-	}
-	return result, nil
+	return client.GetStoreRegionSetByStoreID(allRegions, storeID)
 }
 
 func (pd *PDHttp) GetTableKeyRange(tableID int64) ([]byte, []byte, error) {
