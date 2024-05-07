@@ -4,10 +4,12 @@ import (
 	"testing"
 
 	pdclient "github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/pd_client"
+	"github.com/stretchr/testify/assert"
 	pdhttp "github.com/tikv/pd/client/http"
 )
 
 func TestGetAllTiFlashStores(t *testing.T) {
+	assert := assert.New(t)
 	store_arr := []pdhttp.StoreInfo{
 		{
 			Store: pdhttp.MetaStore{
@@ -49,10 +51,40 @@ func TestGetAllTiFlashStores(t *testing.T) {
 	stores := pdhttp.StoresInfo{Count: len(store_arr), Stores: store_arr}
 
 	ids, _, err := pdclient.GetAllTiFlashStores(stores, "a", "")
-	if err != nil {
-		t.Errorf("error happen, %s", err)
+	assert.Nil(err, nil)
+	assert.Equal(ids, []int64{101})
+
+	ids, _, err = pdclient.GetAllTiFlashStores(stores, "b", "")
+	assert.Nil(err, nil)
+	assert.Equal(ids, []int64{102})
+
+	ids, _, err = pdclient.GetAllTiFlashStores(stores, "c", "")
+	assert.Nil(err, nil)
+	assert.Equal(ids, []int64{103})
+
+	ids, _, err = pdclient.GetAllTiFlashStores(stores, "", "")
+	assert.Nil(err, nil)
+	assert.Equal(ids, []int64{101, 102, 103})
+}
+
+func TestGetStoreRegionSetByStoreID(t *testing.T) {
+	assert := assert.New(t)
+	allRegions := []pdhttp.RegionInfo{
+		{
+			ID:    1,
+			Peers: []pdhttp.RegionPeer{{StoreID: 101}, {StoreID: 102}},
+		},
 	}
-	if len(ids) != 1 || ids[0] != 101 {
-		t.Errorf("ids not as expected, %v", ids)
-	}
+
+	storeID := []int64{101, 102, 103, 104, 105}
+	regionByStore, err := pdclient.GetStoreRegionSetByStoreID(allRegions, storeID)
+	assert.Nil(err)
+	// the output size should be the same as `storeID` size
+	assert.Equal(len(storeID), len(regionByStore))
+
+	storeID = []int64{101, 102}
+	regionByStore, err = pdclient.GetStoreRegionSetByStoreID(allRegions, storeID)
+	assert.Nil(err)
+	// the output size should be the same as `storeID` size
+	assert.Equal(len(storeID), len(regionByStore))
 }
