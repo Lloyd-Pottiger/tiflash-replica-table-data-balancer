@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"slices"
 
 	"github.com/pingcap/errors"
@@ -51,7 +52,7 @@ func Schedule(pd client.PDClient, tableID int64, zone, region string, dryRun, sh
 			zap.Int("num-region", len(store.RegionIDSet)),
 			zap.String("percentage", fmt.Sprintf("%.2f%%", percentage)))
 	}
-	expectedRegionCountPerStore := totalRegionCount / len(tiflashStores)
+	expectedRegionCountPerStore := int(math.Ceil(float64(totalRegionCount) / float64(len(tiflashStores))))
 	log.Info("Total region peer count", zap.Int("total-num-region-peer", totalRegionCount), zap.Int("expect-num-region-per-store", expectedRegionCountPerStore))
 	if showOnly {
 		// only show the region distribution
