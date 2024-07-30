@@ -46,3 +46,27 @@ Only supports PD's HTTP api.
 ```
 
 Specifying `--offline` to also delete `<stores_list_split_by_comma>` from PD, which means they will be set at state `offline`.
+
+## Download
+
+```shell
+# Linux AMD64:
+wget https://github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/releases/download/v0.1.0/balancer-v0.1.0-linux-amd64
+
+# Linux ARM64:
+wget https://github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/releases/download/v0.1.0/balancer-v0.1.0-linux-arm64
+
+# MacOS AMD64:
+wget https://github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/releases/download/v0.1.0/balancer-v0.1.0-darwin-amd64
+
+# MacOS ARM64:
+wget https://github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer/releases/download/v0.1.0/balancer-v0.1.0-darwin-arm64
+```
+
+## Build from source
+
+```shell
+git clone https://github.com/Lloyd-Pottiger/tiflash-replica-table-data-balancer.git
+cd tiflash-replica-table-data-balancer
+make build
+```
